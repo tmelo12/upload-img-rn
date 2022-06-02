@@ -41,6 +41,96 @@ function dataURItoBlob(dataURI) {
 
 export default function App() {
   const [foto, setFoto] = useState();
+  const [fileImage, setFileImage] = useState();
+
+  //função recebe a string da imagem convertida em base64 e retorna um file
+  function imgBase64toFile(imgBase64) {
+
+    //splitar a string da img e base64
+    let arrImg = imgBase64.split(',');
+
+    //com a string 'splitada' temos: 
+    //em arrImg[0] o type (data:image/png;base64)
+    //em arrImg[1] a string da imagem convertida (strign gigante)
+
+    //capturando o type da imagem
+    let type = 'image/png';
+
+    //convertendo a string gigante de arrImg[1] em base64
+
+    //usando bibliotecas utf8 e base 64
+    var imgBytes = utf8.encode(arrImg[1]);
+    var imgEncoded = base64.encode(imgBytes); //atob
+
+
+    //usando o import RNFetchBlob
+    let imgDataConvertedB64 = ''
+    RNFetchBlob.fs.readStream(
+      // file path
+      arrImg[1],
+      // encoding, should be one of `base64`, `utf8`, `ascii`
+      'base64'
+    )
+      .then((ifstream) => {
+        console.log("IFSTREAM => ", ifstream)
+        ifstream.open()
+        ifstream.onData((chunk) => {
+          // when encoding is `ascii`, chunk will be an array contains numbers
+          // otherwise it will be a string
+          imgDataConvertedB64 += chunk
+        })
+        ifstream.onError((err) => {
+          console.log('Error encoding image ', err)
+        })
+        ifstream.onEnd(() => {
+          let imageBase64 = `data:${type},base64` + imgDataConvertedB64;
+
+          let n = imageBase64.length;
+          let u8arr = new Uint8Array(n);
+
+          //convertendo caracteres da img "atobada"
+          while (n--) {
+            u8arr[n] = imageBase64.charCodeAt(n);
+          }
+          
+          //criando o arquivo que vai no formData
+          let ohMyFile = new File([u8arr], 'image', {type: type});
+
+          setFileImage(ohMyFile);
+          //return ohMyFile;
+        })
+      })
+
+    //tamanho da string
+    let tamanho = imgEncoded.length;
+
+    let u8arr = new Uint8Array(tamanho);
+
+    //convertendo caracteres da img "atobada"
+    while (tamanho--) {
+      u8arr[tamanho] = imgEncoded.charCodeAt(tamanho);
+    }
+
+    //criando o arquivo que vai no formData
+    let ohMyFile = new File([u8arr], 'image', {type: type})
+
+    setFileImage(ohMyFile);
+    //return ohMyFile;
+  }
+
+  const requestUpload = async (imgFile) => {
+    let formData = new FormData();
+    formData.append('image', imgFile, imgFile.name);
+    await fetch("http://10.46.6.185:4000/upload", {
+      method: "patch",
+      body: formData,
+      //body: JSON.stringify(data._parts[0]),
+      headers: {
+        //"Content-type": "application/json; charset=UTF-8",
+        'Content-Type': 'multipart/form-data;charset=utf-8',
+      },
+    });
+  }
 
   const requisicao = async () => {
     //console.log(foto.assets[0])
@@ -48,7 +138,7 @@ export default function App() {
     var bytes = utf8.encode(foto.assets[0].uri);
     var encoded = base64.encode(bytes);
     let imgBase64 = `data:${foto.assets[0].type},base64` + encoded
-    console.log("img in base64 => ",imgBase64);
+    console.log("img in base64 => ", imgBase64);
 
     /*let ohMyBlob = dataURItoBlob(foto.assets[0].uri)
     console.log("My blob => ", ohMyBlob)
@@ -94,7 +184,7 @@ export default function App() {
       'base64'
     )
       .then((ifstream) => {
-        console.log("IFSTREAM => ",ifstream)
+        console.log("IFSTREAM => ", ifstream)
         ifstream.open()
         ifstream.onData((chunk) => {
           // when encoding is `ascii`, chunk will be an array contains numbers
